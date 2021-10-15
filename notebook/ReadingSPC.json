@@ -1,0 +1,461 @@
+{
+	"name": "ReadingSPC",
+	"properties": {
+		"folder": {
+			"name": "Itron"
+		},
+		"nbformat": 4,
+		"nbformat_minor": 2,
+		"bigDataPool": {
+			"referenceName": "SparkPool01",
+			"type": "BigDataPoolReference"
+		},
+		"sessionProperties": {
+			"driverMemory": "28g",
+			"driverCores": 4,
+			"executorMemory": "28g",
+			"executorCores": 4,
+			"numExecutors": 90,
+			"conf": {
+				"spark.dynamicAllocation.enabled": "false",
+				"spark.dynamicAllocation.minExecutors": "90",
+				"spark.dynamicAllocation.maxExecutors": "90"
+			}
+		},
+		"metadata": {
+			"saveOutput": true,
+			"synapse_widget": {
+				"version": "0.1"
+			},
+			"enableDebugMode": false,
+			"kernelspec": {
+				"name": "synapse_pyspark",
+				"display_name": "Synapse PySpark"
+			},
+			"language_info": {
+				"name": "python"
+			},
+			"a365ComputeOptions": {
+				"id": "/subscriptions/e6228f9a-248c-4e3e-a6da-eefa0a86d1c4/resourceGroups/rg-bia-ittest-001/providers/Microsoft.Synapse/workspaces/syn-bia-ittest-001/bigDataPools/SparkPool01",
+				"name": "SparkPool01",
+				"type": "Spark",
+				"endpoint": "https://syn-bia-ittest-001.dev.azuresynapse.net/livyApi/versions/2019-11-01-preview/sparkPools/SparkPool01",
+				"auth": {
+					"type": "AAD",
+					"authResource": "https://dev.azuresynapse.net"
+				},
+				"sparkVersion": "2.4",
+				"nodeCount": 3,
+				"cores": 4,
+				"memory": 28,
+				"extraHeader": null
+			}
+		},
+		"cells": [
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"# Reading SPC Builder\r\n",
+					"\r\n",
+					"This notebook takes historical Itron Reading table data, a snapshot of the FlatConfigPhysical (FCP) table, and builds a service point and channel (SPC) view of electricity usage."
+				],
+				"attachments": null
+			},
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"### Import supporting libraries"
+				],
+				"attachments": null
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"import pyspark.sql.functions as f\r\n",
+					"from pyspark.sql.window import Window\r\n",
+					"from pyspark.sql.types import StructType, StructField, IntegerType, StringType\r\n",
+					"\r\n",
+					"from datetime import datetime, timedelta\r\n",
+					"#import concurrent.futures"
+				],
+				"attachments": null,
+				"execution_count": 1
+			},
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"### Setup any Custom Configurations"
+				],
+				"attachments": null
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"spark.conf.set(\"spark.sql.files.maxPartitionBytes\", 1024*1024*32)  # 32 MB partitions instead of 128 -> more parallel reads"
+				],
+				"attachments": null,
+				"execution_count": 2
+			},
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"### Define Variables and Constants"
+				],
+				"attachments": null
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"months = [\"201610\", \"201611\"]\r\n",
+					"month = months[0]\r\n",
+					"sources = {\r\n",
+					"    \"reading\": \"abfss://stg@smuduw2bianpadl02.dfs.core.windows.net/reading_history\",\r\n",
+					"    \"fcp\": \"abfss://idl@smuduw2bianpadl02.dfs.core.windows.net/import/Itron/dbo/FlatConfigPhysical\",\r\n",
+					"    \"rates\": \"abfss://idl@smuduw2bianpadl02.dfs.core.windows.net/import/SAP/RateCategory\"\r\n",
+					"}\r\n",
+					"sink = \"abfss://stg@smuduw2bianpadl02.dfs.core.windows.net/reading_spc\"\r\n",
+					"nfiles = 200"
+				],
+				"attachments": null,
+				"execution_count": 3
+			},
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"### Define User-Defined Functions (UDFs)"
+				],
+				"attachments": null
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"def get_spc(spark, reads, config, partition, shuffle=2400):\r\n",
+					"    fmt = {\"in\": \"yyyy-MM-dd HH:mm:ss z\", \"out\": \"yyyy-MM-dd HH:mm:ss\"}\r\n",
+					"    \r\n",
+					"    read_starttime = \"CAST(from_unixtime(unix_timestamp(concat(utc_endtime, ' UTC'), '{in}') - read_length, '{out}') as string) as read_starttime\"\r\n",
+					"    read_endtime = \"CAST(from_unixtime(unix_timestamp(concat(utc_endtime, ' UTC'), '{in}'), '{out}') as string) as read_endtime\"\r\n",
+					"    read_date = \"INT(from_unixtime(unix_timestamp(concat(utc_endtime, ' UTC'), '{in}') - read_length, 'yyyyMMdd')) as read_date\"\r\n",
+					"    read_hour = \"CAST(hour(from_unixtime(unix_timestamp(concat(utc_endtime, ' UTC'), '{in}') - read_length, '{out}')) as tinyint) as read_hour\"\r\n",
+					"    read_offset = \"from_unixtime(unix_timestamp(concat(utc_endtime, ' UTC'), '{in}') - read_length, 'Z') as read_offset\"\r\n",
+					"    read_month = \"INT(from_unixtime(unix_timestamp(concat(utc_endtime, ' UTC'), '{in}') - read_length, 'yyyyMM')) as read_month\"\r\n",
+					"    \r\n",
+					"    selects = (\r\n",
+					"        \"R.read_id\",\r\n",
+					"        \"servicepoint_id\",\r\n",
+					"        \"CAST(servicepoint_id as int) as dln\",\r\n",
+					"        \"channel\",\r\n",
+					"        \"premise_id\",\r\n",
+					"        \"rate_category\",\r\n",
+					"        read_starttime.format(**fmt),\r\n",
+					"        read_endtime.format(**fmt),\r\n",
+					"        read_date.format(**fmt),\r\n",
+					"        read_hour.format(**fmt),\r\n",
+					"        read_offset.format(**fmt),\r\n",
+					"        \"utc_endtime\",\r\n",
+					"        \"date_from as config_date_from\",\r\n",
+					"        \"date_to as config_date_to\",\r\n",
+					"        \"read_length\",\r\n",
+					"        \"read_status\",\r\n",
+					"        \"read_group\",\r\n",
+					"        \"read_value\",\r\n",
+					"        \"channel_unit\",\r\n",
+					"        \"meter_number\",\r\n",
+					"        \"multiplier\",\r\n",
+					"        \"kwh_multiplier\",\r\n",
+					"        \"recording_device\",\r\n",
+					"        \"billing_system_cycle\",\r\n",
+					"        \"meter_program\",\r\n",
+					"        \"workbin\",\r\n",
+					"        \"channel_type\",\r\n",
+					"        \"channel_set_node_group\",\r\n",
+					"        \"dw_created_dt\",\r\n",
+					"        \"CURRENT_TIMESTAMP() as dw_modified_dt\",\r\n",
+					"        read_month.format(**fmt)\r\n",
+					"    )\r\n",
+					"    \r\n",
+					"    windoworder = [\"read_id\", \"utc_endtime\"]\r\n",
+					"    window = Window.partitionBy(windoworder)\r\n",
+					"    rmax = f.max(\"read_group\").over(window)\r\n",
+					"    maxfilter = \"read_group=rmax\"\r\n",
+					"    \r\n",
+					"    reads = reads.alias(\"R\")\r\n",
+					"    config = config.alias(\"C\")\r\n",
+					"    config_join = ((reads.read_id == config.read_id)\r\n",
+					"        & ((reads.utc_endtime > config.date_from) & (reads.utc_endtime <= config.date_to)))\r\n",
+					"    \r\n",
+					"    return (reads\r\n",
+					"        .repartition(shuffle, \"read_id\")\r\n",
+					"        .join(config.repartition(shuffle, \"read_id\"), config_join, how=\"left\")\r\n",
+					"        .selectExpr(*selects)\r\n",
+					"        .filter(\"read_month=\" + str(partition))\r\n",
+					"        .sortWithinPartitions(*windoworder)\r\n",
+					"        .withColumn(\"rmax\", rmax)\r\n",
+					"        .filter(maxfilter)\r\n",
+					"        .drop(\"rmax\"))\r\n",
+					"\r\n",
+					""
+				],
+				"attachments": null,
+				"execution_count": 4
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"def covering_months(x, fmt=\"%Y%m\"):\r\n",
+					"    dt = datetime.strptime(x, fmt).replace(day=28) + timedelta(days=4)\r\n",
+					"    return x, dt.strftime(fmt)"
+				],
+				"attachments": null,
+				"execution_count": 5
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"def string_list(x):\r\n",
+					"    lst = [\"'{0}'\".format(item) for item in x]\r\n",
+					"    return \",\".join(lst)"
+				],
+				"attachments": null,
+				"execution_count": 6
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"def get_rates(spark, path, persist=False):\r\n",
+					"    schema = \"dln int, premise_id int, rate_category string\"\r\n",
+					"    rate = f.col(\"rate_category\").substr(1, 2)\r\n",
+					"    rates = spark.read.csv(path, schema=schema, header=True).withColumn(\"rate\", rate)\r\n",
+					"    if persist:\r\n",
+					"        rates = rates.persist()\r\n",
+					"        rates.count()\r\n",
+					"\r\n",
+					"    return rates\r\n",
+					"\r\n",
+					""
+				],
+				"attachments": null,
+				"execution_count": 7
+			},
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"### Main"
+				],
+				"attachments": null
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"# Get FCP table (unpersisted)\r\n",
+					"dln = f.col(\"servicepoint_id\").cast(\"int\")\r\n",
+					"kwh_multiplier = 3600 / f.col(\"read_length\")\r\n",
+					"fcp = spark.read.parquet(sources['fcp']).withColumn(\"dln\", dln).withColumn(\"kwh_multiplier\", kwh_multiplier)"
+				],
+				"attachments": null,
+				"execution_count": 8
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"rates = get_rates(spark, sources['rates'])"
+				],
+				"attachments": null,
+				"execution_count": 9
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"config = fcp.join(rates, \"dln\", how=\"left\").persist()\r\n",
+					"config.count()"
+				],
+				"attachments": null,
+				"execution_count": 10
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"# Get a month's reads\r\n",
+					"partition_list = string_list(covering_months(month))\r\n",
+					"partition_filter=\"utc_month IN ({})\".format(partition_list)\r\n",
+					"reads = spark.read.parquet(sources['reading']).filter(partition_filter)\r\n",
+					"df = get_spc(spark, reads, config, month, shuffle=3500)\r\n",
+					""
+				],
+				"attachments": null,
+				"execution_count": 11
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"sink_fh = sink + \"/read_month=\" + month\r\n",
+					"df.repartition(nfiles, \"read_id\", \"utc_endtime\").write.mode(\"overwrite\").parquet(sink_fh)"
+				],
+				"attachments": null,
+				"execution_count": 12
+			}
+		]
+	}
+}

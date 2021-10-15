@@ -1,0 +1,371 @@
+{
+	"name": "ReadingSPC_Aggregates",
+	"properties": {
+		"folder": {
+			"name": "Itron"
+		},
+		"nbformat": 4,
+		"nbformat_minor": 2,
+		"bigDataPool": {
+			"referenceName": "SparkPool02",
+			"type": "BigDataPoolReference"
+		},
+		"sessionProperties": {
+			"driverMemory": "56g",
+			"driverCores": 8,
+			"executorMemory": "56g",
+			"executorCores": 8,
+			"numExecutors": 41,
+			"conf": {
+				"spark.dynamicAllocation.enabled": "false",
+				"spark.dynamicAllocation.minExecutors": "41",
+				"spark.dynamicAllocation.maxExecutors": "41"
+			}
+		},
+		"metadata": {
+			"saveOutput": true,
+			"synapse_widget": {
+				"version": "0.1"
+			},
+			"enableDebugMode": false,
+			"kernelspec": {
+				"name": "synapse_pyspark",
+				"display_name": "Synapse PySpark"
+			},
+			"language_info": {
+				"name": "python"
+			},
+			"a365ComputeOptions": {
+				"id": "/subscriptions/e6228f9a-248c-4e3e-a6da-eefa0a86d1c4/resourceGroups/rg-bia-ittest-001/providers/Microsoft.Synapse/workspaces/syn-bia-ittest-001/bigDataPools/SparkPool02",
+				"name": "SparkPool02",
+				"type": "Spark",
+				"endpoint": "https://syn-bia-ittest-001.dev.azuresynapse.net/livyApi/versions/2019-11-01-preview/sparkPools/SparkPool02",
+				"auth": {
+					"type": "AAD",
+					"authResource": "https://dev.azuresynapse.net"
+				},
+				"sparkVersion": "2.4",
+				"nodeCount": 10,
+				"cores": 8,
+				"memory": 56,
+				"extraHeader": null
+			}
+		},
+		"cells": [
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"# Reading SPC Aggregates\r\n",
+					"\r\n",
+					"This notebook creates the hourly, daily, and interval (wide-format) SPC tables from the processed `reading_spc` table."
+				],
+				"attachments": null
+			},
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"### Import supporting libraries and Configurations"
+				],
+				"attachments": null
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"import os\r\n",
+					"import pyspark.sql.functions as f\r\n",
+					"\r\n",
+					"\r\n",
+					"spark.conf.set(\"spark.sql.files.maxPartitionBytes\", 1024*1024*32)  # 32 MB partitions instead of 128 -> more parallel reads"
+				],
+				"attachments": null,
+				"execution_count": 1
+			},
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"### Define Variables and Constants"
+				],
+				"attachments": null
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"months = [\"201610\", \"201611\"]\r\n",
+					"source = \"abfss://stg@smuduw2bianpadl02.dfs.core.windows.net/reading_spc\"\r\n",
+					"sinks = {\r\n",
+					"    \"hourly\": \"abfss://stg@smuduw2bianpadl02.dfs.core.windows.net/reading_spc_hourly\",\r\n",
+					"    \"daily\": \"abfss://stg@smuduw2bianpadl02.dfs.core.windows.net/reading_spc_daily\"\r\n",
+					"}\r\n",
+					"nfiles = 200"
+				],
+				"attachments": null,
+				"execution_count": 17
+			},
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"### Define User-Defined Functions (UDFs)"
+				],
+				"attachments": null
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"def hourly_snapshot(df):\r\n",
+					"    keys = (\"read_id\", \"servicepoint_id\", \"channel\", \r\n",
+					"    \"premise_id\", \"read_date\", \"read_hour\")\r\n",
+					"    \r\n",
+					"    aggs = (\"read_length\", \"read_status\", \"read_group\", \"read_value\", \r\n",
+					"    \"interval_max\", \"config_date_from\", \"config_date_to\", \"channel_unit\",\r\n",
+					"    \"meter_number\", \"multiplier\", \"recording_device\", \r\n",
+					"    \"billing_system_cycle\", \"meter_program\", \"workbin\", \"channel_type\", \r\n",
+					"    \"channel_set_node_group\", \"dw_created_dt\", \"dw_modified_dt\", \"read_month\")\r\n",
+					"    \r\n",
+					"    proj = keys + aggs\r\n",
+					"    \r\n",
+					"    aggregates = (\r\n",
+					"        f.sum(\"read_value\").alias(\"read_sum\"),\r\n",
+					"        f.collect_set(\"read_offset\").alias(\"offset_arr\"),\r\n",
+					"        f.first(\"read_length\").alias(\"read_length\"),\r\n",
+					"        f.max(\"read_value\").alias(\"interval_max\"),\r\n",
+					"        f.concat_ws(\",\", f.collect_set(\"read_status\")).alias(\"read_status\"),\r\n",
+					"        f.concat_ws(\",\", f.collect_set(\"read_group\")).alias(\"read_group\"),\r\n",
+					"        f.first(\"config_date_from\").alias(\"config_date_from\"),\r\n",
+					"        f.first(\"config_date_to\").alias(\"config_date_to\"),\r\n",
+					"        f.first(\"channel_unit\").alias(\"channel_unit\"),\r\n",
+					"        f.first(\"meter_number\").alias(\"meter_number\"),\r\n",
+					"        f.first(\"multiplier\").alias(\"multiplier\"),\r\n",
+					"        f.first(\"recording_device\").alias(\"recording_device\"),\r\n",
+					"        f.first(\"billing_system_cycle\").alias(\"billing_system_cycle\"),\r\n",
+					"        f.first(\"meter_program\").alias(\"meter_program\"),\r\n",
+					"        f.first(\"workbin\").alias(\"workbin\"),\r\n",
+					"        f.first(\"channel_type\").alias(\"channel_type\"),\r\n",
+					"        f.first(\"channel_set_node_group\").alias(\"channel_set_node_group\"),\r\n",
+					"        f.concat_ws(\",\", f.collect_set(\"dw_created_dt\")).alias(\"dw_created_dt\"),\r\n",
+					"        f.first(\"dw_modified_dt\").alias(\"dw_modified_dt\"),\r\n",
+					"        f.first(\"read_month\").alias(\"read_month\")\r\n",
+					"    )\r\n",
+					"    return (df\r\n",
+					"        .groupby(*keys)\r\n",
+					"        .agg(*aggregates)\r\n",
+					"        .selectExpr(\"*\", \"read_sum / size(offset_arr) as read_value\")\r\n",
+					"        .drop(\"read_sum\", \"offset_arr\")\r\n",
+					"        .select(*proj))\r\n",
+					"\r\n",
+					"\r\n",
+					"def daily_snapshot(df):\r\n",
+					"    when = f.when\r\n",
+					"    peak = df.read_hour.between(17,19)\r\n",
+					"    read = df.read_value\r\n",
+					"    \r\n",
+					"    group = (\"read_id\", \"servicepoint_id\", \"channel\", \"premise_id\", \"read_date\")\r\n",
+					"    aggregates = (\r\n",
+					"        f.avg(when(df.read_hour==0,  read)).alias(\"read_hour00\"),\r\n",
+					"        f.avg(when(df.read_hour==1,  read)).alias(\"read_hour01\"),\r\n",
+					"        f.avg(when(df.read_hour==2,  read)).alias(\"read_hour02\"),\r\n",
+					"        f.avg(when(df.read_hour==3,  read)).alias(\"read_hour03\"),\r\n",
+					"        f.avg(when(df.read_hour==4,  read)).alias(\"read_hour04\"),\r\n",
+					"        f.avg(when(df.read_hour==5,  read)).alias(\"read_hour05\"),\r\n",
+					"        f.avg(when(df.read_hour==6,  read)).alias(\"read_hour06\"),\r\n",
+					"        f.avg(when(df.read_hour==7,  read)).alias(\"read_hour07\"),\r\n",
+					"        f.avg(when(df.read_hour==8,  read)).alias(\"read_hour08\"),\r\n",
+					"        f.avg(when(df.read_hour==9,  read)).alias(\"read_hour09\"),\r\n",
+					"        f.avg(when(df.read_hour==10, read)).alias(\"read_hour10\"),\r\n",
+					"        f.avg(when(df.read_hour==11, read)).alias(\"read_hour11\"),\r\n",
+					"        f.avg(when(df.read_hour==12, read)).alias(\"read_hour12\"),\r\n",
+					"        f.avg(when(df.read_hour==13, read)).alias(\"read_hour13\"),\r\n",
+					"        f.avg(when(df.read_hour==14, read)).alias(\"read_hour14\"),\r\n",
+					"        f.avg(when(df.read_hour==15, read)).alias(\"read_hour15\"),\r\n",
+					"        f.avg(when(df.read_hour==16, read)).alias(\"read_hour16\"),\r\n",
+					"        f.avg(when(df.read_hour==17, read)).alias(\"read_hour17\"),\r\n",
+					"        f.avg(when(df.read_hour==18, read)).alias(\"read_hour18\"),\r\n",
+					"        f.avg(when(df.read_hour==19, read)).alias(\"read_hour19\"),\r\n",
+					"        f.avg(when(df.read_hour==20, read)).alias(\"read_hour20\"),\r\n",
+					"        f.avg(when(df.read_hour==21, read)).alias(\"read_hour21\"),\r\n",
+					"        f.avg(when(df.read_hour==22, read)).alias(\"read_hour22\"),\r\n",
+					"        f.avg(when(df.read_hour==23, read)).alias(\"read_hour23\"),\r\n",
+					"        f.sum(read).alias(\"read_sum\"),\r\n",
+					"        f.min(read).alias(\"read_min\"),\r\n",
+					"        f.max(read).alias(\"read_max\"),\r\n",
+					"        f.avg(read).alias(\"read_avg\"),\r\n",
+					"        f.stddev_pop(read).alias(\"read_std\"),\r\n",
+					"        f.max(df.interval_max).alias(\"interval_max\"),\r\n",
+					"        f.sum(when(peak, read)).alias(\"read_peak_sum\"),\r\n",
+					"        f.min(when(peak, read)).alias(\"read_peak_min\"),\r\n",
+					"        f.max(when(peak, read)).alias(\"read_peak_max\"),\r\n",
+					"        f.avg(when(peak, read)).alias(\"read_peak_avg\"),\r\n",
+					"        f.stddev_pop(when(peak, read)).alias(\"read_peak_std\"),\r\n",
+					"        f.first(\"dw_created_dt\").alias(\"dw_created_dt\"),\r\n",
+					"        f.first(\"dw_modified_dt\").alias(\"dw_modified_dt\"),\r\n",
+					"        f.first(\"read_month\").alias(\"read_month\")\r\n",
+					"    )\r\n",
+					"    return df.groupby(*group).agg(*aggregates)\r\n",
+					"\r\n",
+					"\r\n",
+					"\r\n",
+					""
+				],
+				"attachments": null,
+				"execution_count": 6
+			},
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"### Main"
+				],
+				"attachments": null
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"# for month in months:\r\n",
+					"month = months[1]\r\n",
+					"partition_filter=\"read_month=\" + str(month)\r\n",
+					"reads = spark.read.parquet(source).filter(partition_filter).repartition(2000, \"read_id\").persist()\r\n",
+					"reads.count()\r\n",
+					"hrly = hourly_snapshot(reads)\r\n",
+					"daly = daily_snapshot(hrly)\r\n",
+					""
+				],
+				"attachments": null,
+				"execution_count": 23
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"hourly_sink = os.path.join(sinks['hourly'], partition_filter)\r\n",
+					"daily_sink = os.path.join(sinks['daily'], partition_filter)\r\n",
+					"\r\n",
+					"hrly.repartition(nfiles, \"read_id\").write.mode(\"overwrite\").parquet(hourly_sink)\r\n",
+					"daly.repartition(nfiles, \"read_id\").write.mode(\"overwrite\").parquet(daily_sink)"
+				],
+				"attachments": null,
+				"execution_count": 24
+			},
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"### Cleanup\r\n",
+					""
+				],
+				"attachments": null
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"reads.unpersist()"
+				],
+				"attachments": null,
+				"execution_count": 27
+			}
+		]
+	}
+}

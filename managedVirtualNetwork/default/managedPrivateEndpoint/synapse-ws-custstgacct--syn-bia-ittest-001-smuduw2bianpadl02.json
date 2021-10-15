@@ -1,0 +1,10 @@
+{
+	"name": "synapse-ws-custstgacct--syn-bia-ittest-001-smuduw2bianpadl02",
+	"properties": {
+		"privateLinkResourceId": "/subscriptions/e6228f9a-248c-4e3e-a6da-eefa0a86d1c4/resourceGroups/rg-bia-ittest-001/providers/Microsoft.Storage/storageAccounts/smuduw2bianpadl02",
+		"groupId": "dfs",
+		"fqdns": [
+			"smuduw2bianpadl02.dfs.core.windows.net"
+		]
+	}
+}

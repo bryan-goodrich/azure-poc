@@ -1,0 +1,10 @@
+{
+	"name": "synapse-ws-sql--syn-bia-ittest-001",
+	"properties": {
+		"privateLinkResourceId": "/subscriptions/e6228f9a-248c-4e3e-a6da-eefa0a86d1c4/resourceGroups/rg-bia-ittest-001/providers/Microsoft.Synapse/workspaces/syn-bia-ittest-001",
+		"groupId": "sql",
+		"fqdns": [
+			"syn-bia-ittest-001.ab55a548-d555-4c1c-8c85-70b5883780d3.sql.azuresynapse.net"
+		]
+	}
+}

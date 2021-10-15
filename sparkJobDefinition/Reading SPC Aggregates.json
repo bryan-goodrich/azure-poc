@@ -1,0 +1,30 @@
+{
+	"name": "Reading SPC Aggregates",
+	"properties": {
+		"description": "Processes SPC Hourly and Daily tables",
+		"targetBigDataPool": {
+			"referenceName": "SparkPool01",
+			"type": "BigDataPoolReference"
+		},
+		"requiredSparkVersion": "2.4",
+		"language": "python",
+		"jobProperties": {
+			"name": "Reading SPC Aggregates",
+			"file": "abfss://idl@smuduw2bianpadl02.dfs.core.windows.net/synapse/workspaces/syn-bia-ittest-001/batchjobs/Reading%20SPC%20Aggregates/reading_spc_aggregates.py",
+			"conf": {
+				"spark.dynamicAllocation.enabled": "false",
+				"spark.dynamicAllocation.minExecutors": "90",
+				"spark.dynamicAllocation.maxExecutors": "90",
+				"spark.autotune.trackingId": "5953acc0-0e69-4774-928c-ac981f85f827"
+			},
+			"args": [],
+			"jars": [],
+			"files": [],
+			"driverMemory": "28g",
+			"driverCores": 4,
+			"executorMemory": "28g",
+			"executorCores": 4,
+			"numExecutors": 90
+		}
+	}
+}
