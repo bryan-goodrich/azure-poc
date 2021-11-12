@@ -1,0 +1,29 @@
+{
+	"name": "Process SPC Tables",
+	"properties": {
+		"targetBigDataPool": {
+			"referenceName": "SparkPool02",
+			"type": "BigDataPoolReference"
+		},
+		"requiredSparkVersion": "2.4",
+		"language": "python",
+		"jobProperties": {
+			"name": "Process SPC Tables",
+			"file": "abfss://idl@smuduw2bianpadl02.dfs.core.windows.net/synapse/workspaces/syn-bia-ittest-001/batchjobs/Spark%20job%20definition%201/ProcessReadingTables.py",
+			"conf": {
+				"spark.dynamicAllocation.enabled": "true",
+				"spark.dynamicAllocation.minExecutors": "1",
+				"spark.dynamicAllocation.maxExecutors": "44",
+				"spark.autotune.trackingId": "4f66f408-6b0d-46e6-8bcb-ddf62a6982af"
+			},
+			"args": [],
+			"jars": [],
+			"files": [],
+			"driverMemory": "56g",
+			"driverCores": 8,
+			"executorMemory": "56g",
+			"executorCores": 8,
+			"numExecutors": 1
+		}
+	}
+}
