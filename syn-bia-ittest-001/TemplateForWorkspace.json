@@ -1634,12 +1634,12 @@
 				"language": "python",
 				"jobProperties": {
 					"name": "Process SPC Tables",
-					"file": "abfss://idl@smuduw2bianpadl02.dfs.core.windows.net/synapse/workspaces/syn-bia-ittest-001/batchjobs/Spark%20job%20definition%201/ProcessReadingTables.py",
+					"file": "abfss://idl@smuduw2bianpadl02.dfs.core.windows.net/synapse/workspaces/syn-bia-ittest-001/batchjobs/Process%20SPC%20Tables/ProcessReadingTables.py",
 					"conf": {
 						"spark.dynamicAllocation.enabled": "true",
 						"spark.dynamicAllocation.minExecutors": "1",
 						"spark.dynamicAllocation.maxExecutors": "44",
-						"spark.autotune.trackingId": "4f66f408-6b0d-46e6-8bcb-ddf62a6982af"
+						"spark.autotune.trackingId": "5e93b3ff-a5a2-4d8c-a230-3e93ed0a79e9"
 					},
 					"args": [],
 					"jars": [],
