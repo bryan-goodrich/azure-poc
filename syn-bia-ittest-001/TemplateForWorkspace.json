@@ -1,0 +1,1754 @@
+{
+	"$schema": "http://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
+	"contentVersion": "1.0.0.0",
+	"parameters": {
+		"workspaceName": {
+			"type": "string",
+			"metadata": "Workspace name",
+			"defaultValue": "syn-bia-ittest-001"
+		},
+		"Gold Tier_accountKey": {
+			"type": "secureString",
+			"metadata": "Secure string for 'accountKey' of 'Gold Tier'"
+		},
+		"syn-bia-ittest-001-WorkspaceDefaultSqlServer_connectionString": {
+			"type": "secureString",
+			"metadata": "Secure string for 'connectionString' of 'syn-bia-ittest-001-WorkspaceDefaultSqlServer'"
+		},
+		"Gold Tier_properties_typeProperties_url": {
+			"type": "string",
+			"defaultValue": "https://smuduw2bianpadl01.dfs.core.windows.net"
+		},
+		"syn-bia-ittest-001-WorkspaceDefaultStorage_properties_typeProperties_url": {
+			"type": "string",
+			"defaultValue": "https://smuduw2bianpadl02.dfs.core.windows.net"
+		}
+	},
+	"variables": {
+		"workspaceId": "[concat('Microsoft.Synapse/workspaces/', parameters('workspaceName'))]"
+	},
+	"resources": [
+		{
+			"name": "[concat(parameters('workspaceName'), '/Gold Tier')]",
+			"type": "Microsoft.Synapse/workspaces/linkedServices",
+			"apiVersion": "2019-06-01-preview",
+			"properties": {
+				"annotations": [],
+				"type": "AzureBlobFS",
+				"typeProperties": {
+					"url": "[parameters('Gold Tier_properties_typeProperties_url')]",
+					"accountKey": {
+						"type": "SecureString",
+						"value": "[parameters('Gold Tier_accountKey')]"
+					}
+				},
+				"connectVia": {
+					"referenceName": "AutoResolveIntegrationRuntime",
+					"type": "IntegrationRuntimeReference"
+				}
+			},
+			"dependsOn": [
+				"[concat(variables('workspaceId'), '/integrationRuntimes/AutoResolveIntegrationRuntime')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('workspaceName'), '/syn-bia-ittest-001-WorkspaceDefaultSqlServer')]",
+			"type": "Microsoft.Synapse/workspaces/linkedServices",
+			"apiVersion": "2019-06-01-preview",
+			"properties": {
+				"parameters": {
+					"DBName": {
+						"type": "String"
+					}
+				},
+				"annotations": [],
+				"type": "AzureSqlDW",
+				"typeProperties": {
+					"connectionString": "[parameters('syn-bia-ittest-001-WorkspaceDefaultSqlServer_connectionString')]"
+				},
+				"connectVia": {
+					"referenceName": "AutoResolveIntegrationRuntime",
+					"type": "IntegrationRuntimeReference"
+				}
+			},
+			"dependsOn": [
+				"[concat(variables('workspaceId'), '/integrationRuntimes/AutoResolveIntegrationRuntime')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('workspaceName'), '/syn-bia-ittest-001-WorkspaceDefaultStorage')]",
+			"type": "Microsoft.Synapse/workspaces/linkedServices",
+			"apiVersion": "2019-06-01-preview",
+			"properties": {
+				"annotations": [],
+				"type": "AzureBlobFS",
+				"typeProperties": {
+					"url": "[parameters('syn-bia-ittest-001-WorkspaceDefaultStorage_properties_typeProperties_url')]"
+				},
+				"connectVia": {
+					"referenceName": "AutoResolveIntegrationRuntime",
+					"type": "IntegrationRuntimeReference"
+				}
+			},
+			"dependsOn": [
+				"[concat(variables('workspaceId'), '/integrationRuntimes/AutoResolveIntegrationRuntime')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('workspaceName'), '/AutoResolveIntegrationRuntime')]",
+			"type": "Microsoft.Synapse/workspaces/integrationRuntimes",
+			"apiVersion": "2019-06-01-preview",
+			"properties": {
+				"type": "Managed",
+				"typeProperties": {
+					"computeProperties": {
+						"location": "AutoResolve",
+						"dataFlowProperties": {
+							"computeType": "General",
+							"coreCount": 8,
+							"timeToLive": 0
+						}
+					}
+				},
+				"managedVirtualNetwork": {
+					"type": "ManagedVirtualNetworkReference",
+					"referenceName": "default"
+				}
+			},
+			"dependsOn": [
+				"[concat(variables('workspaceId'), '/managedVirtualNetworks/default')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('workspaceName'), '/WorkspaceSystemIdentity')]",
+			"type": "Microsoft.Synapse/workspaces/credentials",
+			"apiVersion": "2019-06-01-preview",
+			"properties": {
+				"type": "ManagedIdentity",
+				"typeProperties": {}
+			},
+			"dependsOn": []
+		},
+		{
+			"name": "[concat(parameters('workspaceName'), '/ProcessArchive')]",
+			"type": "Microsoft.Synapse/workspaces/notebooks",
+			"apiVersion": "2019-06-01-preview",
+			"properties": {
+				"folder": {
+					"name": "Itron"
+				},
+				"nbformat": 4,
+				"nbformat_minor": 2,
+				"bigDataPool": {
+					"referenceName": "SparkPool01",
+					"type": "BigDataPoolReference"
+				},
+				"sessionProperties": {
+					"driverMemory": "28g",
+					"driverCores": 4,
+					"executorMemory": "28g",
+					"executorCores": 4,
+					"numExecutors": 40,
+					"conf": {
+						"spark.dynamicAllocation.enabled": "false",
+						"spark.dynamicAllocation.minExecutors": "40",
+						"spark.dynamicAllocation.maxExecutors": "40"
+					}
+				},
+				"metadata": {
+					"saveOutput": true,
+					"synapse_widget": {
+						"version": "0.1"
+					},
+					"enableDebugMode": false,
+					"kernelspec": {
+						"name": "synapse_pyspark",
+						"display_name": "Synapse PySpark"
+					},
+					"language_info": {
+						"name": "python"
+					},
+					"a365ComputeOptions": {
+						"id": "/subscriptions/e6228f9a-248c-4e3e-a6da-eefa0a86d1c4/resourceGroups/rg-bia-ittest-001/providers/Microsoft.Synapse/workspaces/syn-bia-ittest-001/bigDataPools/SparkPool01",
+						"name": "SparkPool01",
+						"type": "Spark",
+						"endpoint": "https://syn-bia-ittest-001.dev.azuresynapse.net/livyApi/versions/2019-11-01-preview/sparkPools/SparkPool01",
+						"auth": {
+							"type": "AAD",
+							"authResource": "https://dev.azuresynapse.net"
+						},
+						"sparkVersion": "2.4",
+						"nodeCount": 3,
+						"cores": 4,
+						"memory": 28,
+						"extraHeader": null
+					}
+				},
+				"cells": [
+					{
+						"cell_type": "code",
+						"metadata": {
+							"jupyter": {
+								"source_hidden": false,
+								"outputs_hidden": false
+							},
+							"nteract": {
+								"transient": {
+									"deleting": false
+								}
+							},
+							"microsoft": {
+								"language": "python"
+							}
+						},
+						"source": [
+							"%%pyspark\r\n",
+							"import pyspark.sql.functions as f\r\n",
+							"import uuid\r\n",
+							"import os\r\n",
+							"import subprocess"
+						],
+						"attachments": null,
+						"outputs": [],
+						"execution_count": 1
+					},
+					{
+						"cell_type": "code",
+						"metadata": {
+							"jupyter": {
+								"source_hidden": false,
+								"outputs_hidden": false
+							},
+							"nteract": {
+								"transient": {
+									"deleting": false
+								}
+							}
+						},
+						"source": [
+							"source = \"abfss://idl@smuduw2bianpadl02.dfs.core.windows.net/import/Itron/dbo/Reading/\"\r\n",
+							"sink = \"abfss://stg@smuduw2bianpadl02.dfs.core.windows.net/reading_history\"\r\n",
+							"nfiles = 120\r\n",
+							"partition = \"2016\"\r\n",
+							"partition_filter = \"EndTimeYear=\" + partition\r\n",
+							"endtime_c = f.col(\"EndTime\")\r\n",
+							"utc_month = f.concat(f.lit(partition), f.lpad(f.month(endtime_c), 2, '0'))\r\n",
+							"dw_created_dt = f.lit(\"2021-09-29 00:00:00\")\r\n",
+							"schema = [\r\n",
+							"    f.col(\"NodeID\").alias(\"read_id\"),\r\n",
+							"    endtime_c.alias(\"utc_endtime\"),\r\n",
+							"    f.col(\"DataValue\").alias(\"read_value\"),\r\n",
+							"    f.col(\"StatusID\").alias(\"read_status\"),\r\n",
+							"    f.col(\"ReadingGroupAlternateKey\").alias(\"read_group\"),\r\n",
+							"    dw_created_dt.alias(\"dw_created_dt\"),\r\n",
+							"    utc_month.alias(\"utc_month\")\r\n",
+							"]\r\n",
+							""
+						],
+						"attachments": null,
+						"outputs": [],
+						"execution_count": 2
+					},
+					{
+						"cell_type": "code",
+						"source": [
+							"df = spark.read.parquet(source).filter(partition_filter).select(schema)\r\n",
+							""
+						],
+						"attachments": null,
+						"outputs": [],
+						"execution_count": 3
+					},
+					{
+						"cell_type": "code",
+						"metadata": {
+							"jupyter": {
+								"source_hidden": false,
+								"outputs_hidden": false
+							},
+							"nteract": {
+								"transient": {
+									"deleting": false
+								}
+							}
+						},
+						"source": [
+							"(df\r\n",
+							"    .repartitionByRange(120, \"utc_month\", \"read_id\", \"utc_endtime\")\r\n",
+							"    .write\r\n",
+							"    .mode(\"overwrite\")\r\n",
+							"    .partitionBy(\"utc_month\")\r\n",
+							"    .parquet(sink))\r\n",
+							""
+						],
+						"attachments": null,
+						"outputs": [],
+						"execution_count": 4
+					},
+					{
+						"cell_type": "code",
+						"metadata": {
+							"jupyter": {
+								"source_hidden": false,
+								"outputs_hidden": false
+							},
+							"nteract": {
+								"transient": {
+									"deleting": false
+								}
+							}
+						},
+						"source": [
+							"# https://docs.microsoft.com/en-us/azure/synapse-analytics/spark/microsoft-spark-utilities?pivots=programming-language-python\r\n",
+							"from notebookutils import mssparkutils\r\n",
+							"mssparkutils.fs.help()"
+						],
+						"attachments": null,
+						"outputs": [],
+						"execution_count": 5
+					}
+				]
+			},
+			"dependsOn": []
+		},
+		{
+			"name": "[concat(parameters('workspaceName'), '/ProcessReadingTables')]",
+			"type": "Microsoft.Synapse/workspaces/notebooks",
+			"apiVersion": "2019-06-01-preview",
+			"properties": {
+				"folder": {
+					"name": "Itron"
+				},
+				"nbformat": 4,
+				"nbformat_minor": 2,
+				"bigDataPool": {
+					"referenceName": "SparkPool01",
+					"type": "BigDataPoolReference"
+				},
+				"sessionProperties": {
+					"driverMemory": "28g",
+					"driverCores": 4,
+					"executorMemory": "28g",
+					"executorCores": 4,
+					"numExecutors": 90,
+					"conf": {
+						"spark.dynamicAllocation.enabled": "false",
+						"spark.dynamicAllocation.minExecutors": "90",
+						"spark.dynamicAllocation.maxExecutors": "90",
+						"spark.autotune.trackingId": "5f72f44c-1b4a-4483-9cc6-3f3996547801"
+					}
+				},
+				"metadata": {
+					"saveOutput": true,
+					"enableDebugMode": false,
+					"kernelspec": {
+						"name": "synapse_pyspark",
+						"display_name": "Synapse PySpark"
+					},
+					"language_info": {
+						"name": "python"
+					},
+					"a365ComputeOptions": {
+						"id": "/subscriptions/e6228f9a-248c-4e3e-a6da-eefa0a86d1c4/resourceGroups/rg-bia-ittest-001/providers/Microsoft.Synapse/workspaces/syn-bia-ittest-001/bigDataPools/SparkPool01",
+						"name": "SparkPool01",
+						"type": "Spark",
+						"endpoint": "https://syn-bia-ittest-001.dev.azuresynapse.net/livyApi/versions/2019-11-01-preview/sparkPools/SparkPool01",
+						"auth": {
+							"type": "AAD",
+							"authResource": "https://dev.azuresynapse.net"
+						},
+						"sparkVersion": "2.4",
+						"nodeCount": 3,
+						"cores": 4,
+						"memory": 28
+					}
+				},
+				"cells": [
+					{
+						"cell_type": "markdown",
+						"metadata": {
+							"nteract": {
+								"transient": {
+									"deleting": false
+								}
+							}
+						},
+						"source": [
+							"# Reading SPC Builder\r\n",
+							"\r\n",
+							"This notebook takes historical Itron Reading table data, a snapshot of the FlatConfigPhysical (FCP) table, and builds a service point and channel (SPC) view of electricity usage."
+						]
+					},
+					{
+						"cell_type": "markdown",
+						"metadata": {
+							"nteract": {
+								"transient": {
+									"deleting": false
+								}
+							}
+						},
+						"source": [
+							"### Import supporting libraries"
+						]
+					},
+					{
+						"cell_type": "code",
+						"source": [
+							"import pyspark.sql.functions as f\r\n",
+							"from pyspark.sql.window import Window\r\n",
+							"from pyspark.sql.types import StructType, StructField, IntegerType, StringType\r\n",
+							"\r\n",
+							"from datetime import datetime, timedelta\r\n",
+							"#import concurrent.futures"
+						],
+						"outputs": [],
+						"execution_count": 1
+					},
+					{
+						"cell_type": "markdown",
+						"metadata": {
+							"nteract": {
+								"transient": {
+									"deleting": false
+								}
+							}
+						},
+						"source": [
+							"### Setup any Custom Configurations"
+						]
+					},
+					{
+						"cell_type": "code",
+						"metadata": {
+							"jupyter": {
+								"source_hidden": false,
+								"outputs_hidden": false
+							},
+							"nteract": {
+								"transient": {
+									"deleting": false
+								}
+							}
+						},
+						"source": [
+							"spark.conf.set(\"spark.sql.files.maxPartitionBytes\", 1024*1024*32)  # 32 MB partitions instead of 128 -> more parallel reads"
+						],
+						"outputs": [],
+						"execution_count": 2
+					},
+					{
+						"cell_type": "markdown",
+						"metadata": {
+							"nteract": {
+								"transient": {
+									"deleting": false
+								}
+							}
+						},
+						"source": [
+							"### Define Variables and Constants"
+						]
+					},
+					{
+						"cell_type": "code",
+						"metadata": {
+							"jupyter": {
+								"source_hidden": false,
+								"outputs_hidden": false
+							},
+							"nteract": {
+								"transient": {
+									"deleting": false
+								}
+							}
+						},
+						"source": [
+							"months = [\"201610\", \"201611\"]\r\n",
+							"sources = {\r\n",
+							"    \"reading\": \"abfss://stg@smuduw2bianpadl02.dfs.core.windows.net/reading_history\",\r\n",
+							"    \"fcp\": \"abfss://idl@smuduw2bianpadl02.dfs.core.windows.net/import/Itron/dbo/FlatConfigPhysical\",\r\n",
+							"    \"rates\": \"abfss://idl@smuduw2bianpadl02.dfs.core.windows.net/import/SAP/RateCategory\"\r\n",
+							"}\r\n",
+							"sink = \"abfss://stg@smuduw2bianpadl02.dfs.core.windows.net/reading_spc\"\r\n",
+							"nfiles = 200"
+						],
+						"outputs": [],
+						"execution_count": 3
+					},
+					{
+						"cell_type": "markdown",
+						"metadata": {
+							"nteract": {
+								"transient": {
+									"deleting": false
+								}
+							}
+						},
+						"source": [
+							"### Define User-Defined Functions (UDFs)"
+						]
+					},
+					{
+						"cell_type": "code",
+						"metadata": {
+							"jupyter": {
+								"source_hidden": false,
+								"outputs_hidden": false
+							},
+							"nteract": {
+								"transient": {
+									"deleting": false
+								}
+							}
+						},
+						"source": [
+							"def get_spc(spark, reads, config, partition, shuffle=2400):\r\n",
+							"    fmt = {\"in\": \"yyyy-MM-dd HH:mm:ss z\", \"out\": \"yyyy-MM-dd HH:mm:ss\"}\r\n",
+							"    \r\n",
+							"    read_starttime = \"CAST(from_unixtime(unix_timestamp(concat(utc_endtime, ' UTC'), '{in}') - read_length, '{out}') as string) as read_starttime\"\r\n",
+							"    read_endtime = \"CAST(from_unixtime(unix_timestamp(concat(utc_endtime, ' UTC'), '{in}'), '{out}') as string) as read_endtime\"\r\n",
+							"    read_date = \"INT(from_unixtime(unix_timestamp(concat(utc_endtime, ' UTC'), '{in}') - read_length, 'yyyyMMdd')) as read_date\"\r\n",
+							"    read_hour = \"CAST(hour(from_unixtime(unix_timestamp(concat(utc_endtime, ' UTC'), '{in}') - read_length, '{out}')) as tinyint) as read_hour\"\r\n",
+							"    read_offset = \"from_unixtime(unix_timestamp(concat(utc_endtime, ' UTC'), '{in}') - read_length, 'Z') as read_offset\"\r\n",
+							"    read_month = \"INT(from_unixtime(unix_timestamp(concat(utc_endtime, ' UTC'), '{in}') - read_length, 'yyyyMM')) as read_month\"\r\n",
+							"    \r\n",
+							"    selects = (\r\n",
+							"        \"R.read_id\",\r\n",
+							"        \"servicepoint_id\",\r\n",
+							"        \"CAST(servicepoint_id as int) as dln\",\r\n",
+							"        \"channel\",\r\n",
+							"        \"premise_id\",\r\n",
+							"        \"rate_category\",\r\n",
+							"        read_starttime.format(**fmt),\r\n",
+							"        read_endtime.format(**fmt),\r\n",
+							"        read_date.format(**fmt),\r\n",
+							"        read_hour.format(**fmt),\r\n",
+							"        read_offset.format(**fmt),\r\n",
+							"        \"utc_endtime\",\r\n",
+							"        \"date_from as config_date_from\",\r\n",
+							"        \"date_to as config_date_to\",\r\n",
+							"        \"read_length\",\r\n",
+							"        \"read_status\",\r\n",
+							"        \"read_group\",\r\n",
+							"        \"read_value\",\r\n",
+							"        \"channel_unit\",\r\n",
+							"        \"meter_number\",\r\n",
+							"        \"multiplier\",\r\n",
+							"        \"kwh_multiplier\",\r\n",
+							"        \"recording_device\",\r\n",
+							"        \"billing_system_cycle\",\r\n",
+							"        \"meter_program\",\r\n",
+							"        \"workbin\",\r\n",
+							"        \"channel_type\",\r\n",
+							"        \"channel_set_node_group\",\r\n",
+							"        \"dw_created_dt\",\r\n",
+							"        \"CURRENT_TIMESTAMP() as dw_modified_dt\",\r\n",
+							"        read_month.format(**fmt)\r\n",
+							"    )\r\n",
+							"    \r\n",
+							"    windoworder = [\"read_id\", \"utc_endtime\"]\r\n",
+							"    window = Window.partitionBy(windoworder)\r\n",
+							"    rmax = f.max(\"read_group\").over(window)\r\n",
+							"    maxfilter = \"read_group=rmax\"\r\n",
+							"    \r\n",
+							"    reads = reads.alias(\"R\")\r\n",
+							"    config = config.alias(\"C\")\r\n",
+							"    config_join = ((reads.read_id == config.read_id)\r\n",
+							"        & ((reads.utc_endtime > config.date_from) & (reads.utc_endtime <= config.date_to)))\r\n",
+							"    \r\n",
+							"    return (reads\r\n",
+							"        .repartition(shuffle, \"read_id\")\r\n",
+							"        .join(config.repartition(shuffle, \"read_id\"), config_join, how=\"left\")\r\n",
+							"        .selectExpr(*selects)\r\n",
+							"        .filter(\"read_month=\" + str(partition))\r\n",
+							"        .sortWithinPartitions(*windoworder)\r\n",
+							"        .withColumn(\"rmax\", rmax)\r\n",
+							"        .filter(maxfilter)\r\n",
+							"        .drop(\"rmax\"))\r\n",
+							"\r\n",
+							""
+						],
+						"outputs": [],
+						"execution_count": 4
+					},
+					{
+						"cell_type": "code",
+						"metadata": {
+							"jupyter": {
+								"source_hidden": false,
+								"outputs_hidden": false
+							},
+							"nteract": {
+								"transient": {
+									"deleting": false
+								}
+							}
+						},
+						"source": [
+							"def covering_months(x, fmt=\"%Y%m\"):\r\n",
+							"    dt = datetime.strptime(x, fmt).replace(day=28) + timedelta(days=4)\r\n",
+							"    return x, dt.strftime(fmt)"
+						],
+						"outputs": [],
+						"execution_count": 5
+					},
+					{
+						"cell_type": "code",
+						"metadata": {
+							"jupyter": {
+								"source_hidden": false,
+								"outputs_hidden": false
+							},
+							"nteract": {
+								"transient": {
+									"deleting": false
+								}
+							}
+						},
+						"source": [
+							"def string_list(x):\r\n",
+							"    lst = [\"'{0}'\".format(item) for item in x]\r\n",
+							"    return \",\".join(lst)"
+						],
+						"outputs": [],
+						"execution_count": 6
+					},
+					{
+						"cell_type": "code",
+						"metadata": {
+							"jupyter": {
+								"source_hidden": false,
+								"outputs_hidden": false
+							},
+							"nteract": {
+								"transient": {
+									"deleting": false
+								}
+							}
+						},
+						"source": [
+							"def get_rates(spark, path, persist=False):\r\n",
+							"    schema = \"dln int, premise_id int, rate_category string\"\r\n",
+							"    rate = f.col(\"rate_category\").substr(1, 2)\r\n",
+							"    rates = spark.read.csv(path, schema=schema, header=True).withColumn(\"rate\", rate)\r\n",
+							"    if persist:\r\n",
+							"        rates = rates.persist()\r\n",
+							"        rates.count()\r\n",
+							"\r\n",
+							"    return rates\r\n",
+							"\r\n",
+							""
+						],
+						"outputs": [],
+						"execution_count": 7
+					},
+					{
+						"cell_type": "markdown",
+						"metadata": {
+							"nteract": {
+								"transient": {
+									"deleting": false
+								}
+							}
+						},
+						"source": [
+							"### Main"
+						]
+					},
+					{
+						"cell_type": "code",
+						"metadata": {
+							"jupyter": {
+								"source_hidden": false,
+								"outputs_hidden": false
+							},
+							"nteract": {
+								"transient": {
+									"deleting": false
+								}
+							}
+						},
+						"source": [
+							"# Get FCP table (unpersisted)\r\n",
+							"dln = f.col(\"servicepoint_id\").cast(\"int\")\r\n",
+							"kwh_multiplier = 3600 / f.col(\"read_length\")\r\n",
+							"fcp = spark.read.parquet(sources['fcp']).withColumn(\"dln\", dln).withColumn(\"kwh_multiplier\", kwh_multiplier)"
+						],
+						"outputs": [],
+						"execution_count": 8
+					},
+					{
+						"cell_type": "code",
+						"metadata": {
+							"jupyter": {
+								"source_hidden": false,
+								"outputs_hidden": false
+							},
+							"nteract": {
+								"transient": {
+									"deleting": false
+								}
+							}
+						},
+						"source": [
+							"rates = get_rates(spark, sources['rates'])"
+						],
+						"outputs": [],
+						"execution_count": 9
+					},
+					{
+						"cell_type": "code",
+						"metadata": {
+							"jupyter": {
+								"source_hidden": false,
+								"outputs_hidden": false
+							},
+							"nteract": {
+								"transient": {
+									"deleting": false
+								}
+							}
+						},
+						"source": [
+							"config = fcp.join(rates, \"dln\", how=\"left\").persist()\r\n",
+							"config.count()"
+						],
+						"outputs": [],
+						"execution_count": 10
+					},
+					{
+						"cell_type": "code",
+						"metadata": {
+							"jupyter": {
+								"source_hidden": false,
+								"outputs_hidden": false
+							},
+							"nteract": {
+								"transient": {
+									"deleting": false
+								}
+							}
+						},
+						"source": [
+							"# Get a month's reads\r\n",
+							"partition_list = string_list(covering_months(month))\r\n",
+							"partition_filter=\"utc_month IN ({})\".format(partition_list)\r\n",
+							"reads = spark.read.parquet(sources['reading']).filter(partition_filter)\r\n",
+							"df = get_spc(spark, reads, config, month, shuffle=3500)\r\n",
+							""
+						],
+						"outputs": [],
+						"execution_count": 11
+					},
+					{
+						"cell_type": "code",
+						"metadata": {
+							"jupyter": {
+								"source_hidden": false,
+								"outputs_hidden": false
+							},
+							"nteract": {
+								"transient": {
+									"deleting": false
+								}
+							}
+						},
+						"source": [
+							"sink_fh = sink + \"/read_month=\" + month\r\n",
+							"df.repartition(nfiles, \"read_id\", \"utc_endtime\").write.mode(\"overwrite\").parquet(sink_fh)"
+						],
+						"outputs": [],
+						"execution_count": 12
+					}
+				]
+			},
+			"dependsOn": []
+		},
+		{
+			"name": "[concat(parameters('workspaceName'), '/ReadingSPC')]",
+			"type": "Microsoft.Synapse/workspaces/notebooks",
+			"apiVersion": "2019-06-01-preview",
+			"properties": {
+				"folder": {
+					"name": "Itron"
+				},
+				"nbformat": 4,
+				"nbformat_minor": 2,
+				"bigDataPool": {
+					"referenceName": "SparkPool01",
+					"type": "BigDataPoolReference"
+				},
+				"sessionProperties": {
+					"driverMemory": "28g",
+					"driverCores": 4,
+					"executorMemory": "28g",
+					"executorCores": 4,
+					"numExecutors": 90,
+					"conf": {
+						"spark.dynamicAllocation.enabled": "false",
+						"spark.dynamicAllocation.minExecutors": "90",
+						"spark.dynamicAllocation.maxExecutors": "90"
+					}
+				},
+				"metadata": {
+					"saveOutput": true,
+					"synapse_widget": {
+						"version": "0.1"
+					},
+					"enableDebugMode": false,
+					"kernelspec": {
+						"name": "synapse_pyspark",
+						"display_name": "Synapse PySpark"
+					},
+					"language_info": {
+						"name": "python"
+					},
+					"a365ComputeOptions": {
+						"id": "/subscriptions/e6228f9a-248c-4e3e-a6da-eefa0a86d1c4/resourceGroups/rg-bia-ittest-001/providers/Microsoft.Synapse/workspaces/syn-bia-ittest-001/bigDataPools/SparkPool01",
+						"name": "SparkPool01",
+						"type": "Spark",
+						"endpoint": "https://syn-bia-ittest-001.dev.azuresynapse.net/livyApi/versions/2019-11-01-preview/sparkPools/SparkPool01",
+						"auth": {
+							"type": "AAD",
+							"authResource": "https://dev.azuresynapse.net"
+						},
+						"sparkVersion": "2.4",
+						"nodeCount": 3,
+						"cores": 4,
+						"memory": 28,
+						"extraHeader": null
+					}
+				},
+				"cells": [
+					{
+						"cell_type": "markdown",
+						"metadata": {
+							"nteract": {
+								"transient": {
+									"deleting": false
+								}
+							}
+						},
+						"source": [
+							"# Reading SPC Builder\r\n",
+							"\r\n",
+							"This notebook takes historical Itron Reading table data, a snapshot of the FlatConfigPhysical (FCP) table, and builds a service point and channel (SPC) view of electricity usage."
+						],
+						"attachments": null
+					},
+					{
+						"cell_type": "markdown",
+						"metadata": {
+							"nteract": {
+								"transient": {
+									"deleting": false
+								}
+							}
+						},
+						"source": [
+							"### Import supporting libraries"
+						],
+						"attachments": null
+					},
+					{
+						"cell_type": "code",
+						"source": [
+							"import pyspark.sql.functions as f\r\n",
+							"from pyspark.sql.window import Window\r\n",
+							"from pyspark.sql.types import StructType, StructField, IntegerType, StringType\r\n",
+							"\r\n",
+							"from datetime import datetime, timedelta\r\n",
+							"#import concurrent.futures"
+						],
+						"attachments": null,
+						"outputs": [],
+						"execution_count": 1
+					},
+					{
+						"cell_type": "markdown",
+						"metadata": {
+							"nteract": {
+								"transient": {
+									"deleting": false
+								}
+							}
+						},
+						"source": [
+							"### Setup any Custom Configurations"
+						],
+						"attachments": null
+					},
+					{
+						"cell_type": "code",
+						"metadata": {
+							"jupyter": {
+								"source_hidden": false,
+								"outputs_hidden": false
+							},
+							"nteract": {
+								"transient": {
+									"deleting": false
+								}
+							}
+						},
+						"source": [
+							"spark.conf.set(\"spark.sql.files.maxPartitionBytes\", 1024*1024*32)  # 32 MB partitions instead of 128 -> more parallel reads"
+						],
+						"attachments": null,
+						"outputs": [],
+						"execution_count": 2
+					},
+					{
+						"cell_type": "markdown",
+						"metadata": {
+							"nteract": {
+								"transient": {
+									"deleting": false
+								}
+							}
+						},
+						"source": [
+							"### Define Variables and Constants"
+						],
+						"attachments": null
+					},
+					{
+						"cell_type": "code",
+						"metadata": {
+							"jupyter": {
+								"source_hidden": false,
+								"outputs_hidden": false
+							},
+							"nteract": {
+								"transient": {
+									"deleting": false
+								}
+							}
+						},
+						"source": [
+							"months = [\"201610\", \"201611\"]\r\n",
+							"month = months[0]\r\n",
+							"sources = {\r\n",
+							"    \"reading\": \"abfss://stg@smuduw2bianpadl02.dfs.core.windows.net/reading_history\",\r\n",
+							"    \"fcp\": \"abfss://idl@smuduw2bianpadl02.dfs.core.windows.net/import/Itron/dbo/FlatConfigPhysical\",\r\n",
+							"    \"rates\": \"abfss://idl@smuduw2bianpadl02.dfs.core.windows.net/import/SAP/RateCategory\"\r\n",
+							"}\r\n",
+							"sink = \"abfss://stg@smuduw2bianpadl02.dfs.core.windows.net/reading_spc\"\r\n",
+							"nfiles = 200"
+						],
+						"attachments": null,
+						"outputs": [],
+						"execution_count": 3
+					},
+					{
+						"cell_type": "markdown",
+						"metadata": {
+							"nteract": {
+								"transient": {
+									"deleting": false
+								}
+							}
+						},
+						"source": [
+							"### Define User-Defined Functions (UDFs)"
+						],
+						"attachments": null
+					},
+					{
+						"cell_type": "code",
+						"metadata": {
+							"jupyter": {
+								"source_hidden": false,
+								"outputs_hidden": false
+							},
+							"nteract": {
+								"transient": {
+									"deleting": false
+								}
+							}
+						},
+						"source": [
+							"def get_spc(spark, reads, config, partition, shuffle=2400):\r\n",
+							"    fmt = {\"in\": \"yyyy-MM-dd HH:mm:ss z\", \"out\": \"yyyy-MM-dd HH:mm:ss\"}\r\n",
+							"    \r\n",
+							"    read_starttime = \"CAST(from_unixtime(unix_timestamp(concat(utc_endtime, ' UTC'), '{in}') - read_length, '{out}') as string) as read_starttime\"\r\n",
+							"    read_endtime = \"CAST(from_unixtime(unix_timestamp(concat(utc_endtime, ' UTC'), '{in}'), '{out}') as string) as read_endtime\"\r\n",
+							"    read_date = \"INT(from_unixtime(unix_timestamp(concat(utc_endtime, ' UTC'), '{in}') - read_length, 'yyyyMMdd')) as read_date\"\r\n",
+							"    read_hour = \"CAST(hour(from_unixtime(unix_timestamp(concat(utc_endtime, ' UTC'), '{in}') - read_length, '{out}')) as tinyint) as read_hour\"\r\n",
+							"    read_offset = \"from_unixtime(unix_timestamp(concat(utc_endtime, ' UTC'), '{in}') - read_length, 'Z') as read_offset\"\r\n",
+							"    read_month = \"INT(from_unixtime(unix_timestamp(concat(utc_endtime, ' UTC'), '{in}') - read_length, 'yyyyMM')) as read_month\"\r\n",
+							"    \r\n",
+							"    selects = (\r\n",
+							"        \"R.read_id\",\r\n",
+							"        \"servicepoint_id\",\r\n",
+							"        \"CAST(servicepoint_id as int) as dln\",\r\n",
+							"        \"channel\",\r\n",
+							"        \"premise_id\",\r\n",
+							"        \"rate_category\",\r\n",
+							"        read_starttime.format(**fmt),\r\n",
+							"        read_endtime.format(**fmt),\r\n",
+							"        read_date.format(**fmt),\r\n",
+							"        read_hour.format(**fmt),\r\n",
+							"        read_offset.format(**fmt),\r\n",
+							"        \"utc_endtime\",\r\n",
+							"        \"date_from as config_date_from\",\r\n",
+							"        \"date_to as config_date_to\",\r\n",
+							"        \"read_length\",\r\n",
+							"        \"read_status\",\r\n",
+							"        \"read_group\",\r\n",
+							"        \"read_value\",\r\n",
+							"        \"channel_unit\",\r\n",
+							"        \"meter_number\",\r\n",
+							"        \"multiplier\",\r\n",
+							"        \"kwh_multiplier\",\r\n",
+							"        \"recording_device\",\r\n",
+							"        \"billing_system_cycle\",\r\n",
+							"        \"meter_program\",\r\n",
+							"        \"workbin\",\r\n",
+							"        \"channel_type\",\r\n",
+							"        \"channel_set_node_group\",\r\n",
+							"        \"dw_created_dt\",\r\n",
+							"        \"CURRENT_TIMESTAMP() as dw_modified_dt\",\r\n",
+							"        read_month.format(**fmt)\r\n",
+							"    )\r\n",
+							"    \r\n",
+							"    windoworder = [\"read_id\", \"utc_endtime\"]\r\n",
+							"    window = Window.partitionBy(windoworder)\r\n",
+							"    rmax = f.max(\"read_group\").over(window)\r\n",
+							"    maxfilter = \"read_group=rmax\"\r\n",
+							"    \r\n",
+							"    reads = reads.alias(\"R\")\r\n",
+							"    config = config.alias(\"C\")\r\n",
+							"    config_join = ((reads.read_id == config.read_id)\r\n",
+							"        & ((reads.utc_endtime > config.date_from) & (reads.utc_endtime <= config.date_to)))\r\n",
+							"    \r\n",
+							"    return (reads\r\n",
+							"        .repartition(shuffle, \"read_id\")\r\n",
+							"        .join(config.repartition(shuffle, \"read_id\"), config_join, how=\"left\")\r\n",
+							"        .selectExpr(*selects)\r\n",
+							"        .filter(\"read_month=\" + str(partition))\r\n",
+							"        .sortWithinPartitions(*windoworder)\r\n",
+							"        .withColumn(\"rmax\", rmax)\r\n",
+							"        .filter(maxfilter)\r\n",
+							"        .drop(\"rmax\"))\r\n",
+							"\r\n",
+							""
+						],
+						"attachments": null,
+						"outputs": [],
+						"execution_count": 4
+					},
+					{
+						"cell_type": "code",
+						"metadata": {
+							"jupyter": {
+								"source_hidden": false,
+								"outputs_hidden": false
+							},
+							"nteract": {
+								"transient": {
+									"deleting": false
+								}
+							}
+						},
+						"source": [
+							"def covering_months(x, fmt=\"%Y%m\"):\r\n",
+							"    dt = datetime.strptime(x, fmt).replace(day=28) + timedelta(days=4)\r\n",
+							"    return x, dt.strftime(fmt)"
+						],
+						"attachments": null,
+						"outputs": [],
+						"execution_count": 5
+					},
+					{
+						"cell_type": "code",
+						"metadata": {
+							"jupyter": {
+								"source_hidden": false,
+								"outputs_hidden": false
+							},
+							"nteract": {
+								"transient": {
+									"deleting": false
+								}
+							}
+						},
+						"source": [
+							"def string_list(x):\r\n",
+							"    lst = [\"'{0}'\".format(item) for item in x]\r\n",
+							"    return \",\".join(lst)"
+						],
+						"attachments": null,
+						"outputs": [],
+						"execution_count": 6
+					},
+					{
+						"cell_type": "code",
+						"metadata": {
+							"jupyter": {
+								"source_hidden": false,
+								"outputs_hidden": false
+							},
+							"nteract": {
+								"transient": {
+									"deleting": false
+								}
+							}
+						},
+						"source": [
+							"def get_rates(spark, path, persist=False):\r\n",
+							"    schema = \"dln int, premise_id int, rate_category string\"\r\n",
+							"    rate = f.col(\"rate_category\").substr(1, 2)\r\n",
+							"    rates = spark.read.csv(path, schema=schema, header=True).withColumn(\"rate\", rate)\r\n",
+							"    if persist:\r\n",
+							"        rates = rates.persist()\r\n",
+							"        rates.count()\r\n",
+							"\r\n",
+							"    return rates\r\n",
+							"\r\n",
+							""
+						],
+						"attachments": null,
+						"outputs": [],
+						"execution_count": 7
+					},
+					{
+						"cell_type": "markdown",
+						"metadata": {
+							"nteract": {
+								"transient": {
+									"deleting": false
+								}
+							}
+						},
+						"source": [
+							"### Main"
+						],
+						"attachments": null
+					},
+					{
+						"cell_type": "code",
+						"metadata": {
+							"jupyter": {
+								"source_hidden": false,
+								"outputs_hidden": false
+							},
+							"nteract": {
+								"transient": {
+									"deleting": false
+								}
+							}
+						},
+						"source": [
+							"# Get FCP table (unpersisted)\r\n",
+							"dln = f.col(\"servicepoint_id\").cast(\"int\")\r\n",
+							"kwh_multiplier = 3600 / f.col(\"read_length\")\r\n",
+							"fcp = spark.read.parquet(sources['fcp']).withColumn(\"dln\", dln).withColumn(\"kwh_multiplier\", kwh_multiplier)"
+						],
+						"attachments": null,
+						"outputs": [],
+						"execution_count": 8
+					},
+					{
+						"cell_type": "code",
+						"metadata": {
+							"jupyter": {
+								"source_hidden": false,
+								"outputs_hidden": false
+							},
+							"nteract": {
+								"transient": {
+									"deleting": false
+								}
+							}
+						},
+						"source": [
+							"rates = get_rates(spark, sources['rates'])"
+						],
+						"attachments": null,
+						"outputs": [],
+						"execution_count": 9
+					},
+					{
+						"cell_type": "code",
+						"metadata": {
+							"jupyter": {
+								"source_hidden": false,
+								"outputs_hidden": false
+							},
+							"nteract": {
+								"transient": {
+									"deleting": false
+								}
+							}
+						},
+						"source": [
+							"config = fcp.join(rates, \"dln\", how=\"left\").persist()\r\n",
+							"config.count()"
+						],
+						"attachments": null,
+						"outputs": [],
+						"execution_count": 10
+					},
+					{
+						"cell_type": "code",
+						"metadata": {
+							"jupyter": {
+								"source_hidden": false,
+								"outputs_hidden": false
+							},
+							"nteract": {
+								"transient": {
+									"deleting": false
+								}
+							}
+						},
+						"source": [
+							"# Get a month's reads\r\n",
+							"partition_list = string_list(covering_months(month))\r\n",
+							"partition_filter=\"utc_month IN ({})\".format(partition_list)\r\n",
+							"reads = spark.read.parquet(sources['reading']).filter(partition_filter)\r\n",
+							"df = get_spc(spark, reads, config, month, shuffle=3500)\r\n",
+							""
+						],
+						"attachments": null,
+						"outputs": [],
+						"execution_count": 11
+					},
+					{
+						"cell_type": "code",
+						"metadata": {
+							"jupyter": {
+								"source_hidden": false,
+								"outputs_hidden": false
+							},
+							"nteract": {
+								"transient": {
+									"deleting": false
+								}
+							}
+						},
+						"source": [
+							"sink_fh = sink + \"/read_month=\" + month\r\n",
+							"df.repartition(nfiles, \"read_id\", \"utc_endtime\").write.mode(\"overwrite\").parquet(sink_fh)"
+						],
+						"attachments": null,
+						"outputs": [],
+						"execution_count": 12
+					}
+				]
+			},
+			"dependsOn": []
+		},
+		{
+			"name": "[concat(parameters('workspaceName'), '/ReadingSPC_Aggregates')]",
+			"type": "Microsoft.Synapse/workspaces/notebooks",
+			"apiVersion": "2019-06-01-preview",
+			"properties": {
+				"folder": {
+					"name": "Itron"
+				},
+				"nbformat": 4,
+				"nbformat_minor": 2,
+				"bigDataPool": {
+					"referenceName": "SparkPool02",
+					"type": "BigDataPoolReference"
+				},
+				"sessionProperties": {
+					"driverMemory": "56g",
+					"driverCores": 8,
+					"executorMemory": "56g",
+					"executorCores": 8,
+					"numExecutors": 41,
+					"conf": {
+						"spark.dynamicAllocation.enabled": "false",
+						"spark.dynamicAllocation.minExecutors": "41",
+						"spark.dynamicAllocation.maxExecutors": "41"
+					}
+				},
+				"metadata": {
+					"saveOutput": true,
+					"synapse_widget": {
+						"version": "0.1"
+					},
+					"enableDebugMode": false,
+					"kernelspec": {
+						"name": "synapse_pyspark",
+						"display_name": "Synapse PySpark"
+					},
+					"language_info": {
+						"name": "python"
+					},
+					"a365ComputeOptions": {
+						"id": "/subscriptions/e6228f9a-248c-4e3e-a6da-eefa0a86d1c4/resourceGroups/rg-bia-ittest-001/providers/Microsoft.Synapse/workspaces/syn-bia-ittest-001/bigDataPools/SparkPool02",
+						"name": "SparkPool02",
+						"type": "Spark",
+						"endpoint": "https://syn-bia-ittest-001.dev.azuresynapse.net/livyApi/versions/2019-11-01-preview/sparkPools/SparkPool02",
+						"auth": {
+							"type": "AAD",
+							"authResource": "https://dev.azuresynapse.net"
+						},
+						"sparkVersion": "2.4",
+						"nodeCount": 10,
+						"cores": 8,
+						"memory": 56,
+						"extraHeader": null
+					}
+				},
+				"cells": [
+					{
+						"cell_type": "markdown",
+						"metadata": {
+							"nteract": {
+								"transient": {
+									"deleting": false
+								}
+							}
+						},
+						"source": [
+							"# Reading SPC Aggregates\r\n",
+							"\r\n",
+							"This notebook creates the hourly, daily, and interval (wide-format) SPC tables from the processed `reading_spc` table."
+						],
+						"attachments": null
+					},
+					{
+						"cell_type": "markdown",
+						"metadata": {
+							"nteract": {
+								"transient": {
+									"deleting": false
+								}
+							}
+						},
+						"source": [
+							"### Import supporting libraries and Configurations"
+						],
+						"attachments": null
+					},
+					{
+						"cell_type": "code",
+						"metadata": {
+							"jupyter": {
+								"source_hidden": false,
+								"outputs_hidden": false
+							},
+							"nteract": {
+								"transient": {
+									"deleting": false
+								}
+							}
+						},
+						"source": [
+							"import os\r\n",
+							"import pyspark.sql.functions as f\r\n",
+							"\r\n",
+							"\r\n",
+							"spark.conf.set(\"spark.sql.files.maxPartitionBytes\", 1024*1024*32)  # 32 MB partitions instead of 128 -> more parallel reads"
+						],
+						"attachments": null,
+						"outputs": [],
+						"execution_count": 1
+					},
+					{
+						"cell_type": "markdown",
+						"metadata": {
+							"nteract": {
+								"transient": {
+									"deleting": false
+								}
+							}
+						},
+						"source": [
+							"### Define Variables and Constants"
+						],
+						"attachments": null
+					},
+					{
+						"cell_type": "code",
+						"metadata": {
+							"jupyter": {
+								"source_hidden": false,
+								"outputs_hidden": false
+							},
+							"nteract": {
+								"transient": {
+									"deleting": false
+								}
+							}
+						},
+						"source": [
+							"months = [\"201610\", \"201611\"]\r\n",
+							"source = \"abfss://stg@smuduw2bianpadl02.dfs.core.windows.net/reading_spc\"\r\n",
+							"sinks = {\r\n",
+							"    \"hourly\": \"abfss://stg@smuduw2bianpadl02.dfs.core.windows.net/reading_spc_hourly\",\r\n",
+							"    \"daily\": \"abfss://stg@smuduw2bianpadl02.dfs.core.windows.net/reading_spc_daily\"\r\n",
+							"}\r\n",
+							"nfiles = 200"
+						],
+						"attachments": null,
+						"outputs": [],
+						"execution_count": 17
+					},
+					{
+						"cell_type": "markdown",
+						"metadata": {
+							"nteract": {
+								"transient": {
+									"deleting": false
+								}
+							}
+						},
+						"source": [
+							"### Define User-Defined Functions (UDFs)"
+						],
+						"attachments": null
+					},
+					{
+						"cell_type": "code",
+						"metadata": {
+							"jupyter": {
+								"source_hidden": false,
+								"outputs_hidden": false
+							},
+							"nteract": {
+								"transient": {
+									"deleting": false
+								}
+							}
+						},
+						"source": [
+							"def hourly_snapshot(df):\r\n",
+							"    keys = (\"read_id\", \"servicepoint_id\", \"channel\", \r\n",
+							"    \"premise_id\", \"read_date\", \"read_hour\")\r\n",
+							"    \r\n",
+							"    aggs = (\"read_length\", \"read_status\", \"read_group\", \"read_value\", \r\n",
+							"    \"interval_max\", \"config_date_from\", \"config_date_to\", \"channel_unit\",\r\n",
+							"    \"meter_number\", \"multiplier\", \"recording_device\", \r\n",
+							"    \"billing_system_cycle\", \"meter_program\", \"workbin\", \"channel_type\", \r\n",
+							"    \"channel_set_node_group\", \"dw_created_dt\", \"dw_modified_dt\", \"read_month\")\r\n",
+							"    \r\n",
+							"    proj = keys + aggs\r\n",
+							"    \r\n",
+							"    aggregates = (\r\n",
+							"        f.sum(\"read_value\").alias(\"read_sum\"),\r\n",
+							"        f.collect_set(\"read_offset\").alias(\"offset_arr\"),\r\n",
+							"        f.first(\"read_length\").alias(\"read_length\"),\r\n",
+							"        f.max(\"read_value\").alias(\"interval_max\"),\r\n",
+							"        f.concat_ws(\",\", f.collect_set(\"read_status\")).alias(\"read_status\"),\r\n",
+							"        f.concat_ws(\",\", f.collect_set(\"read_group\")).alias(\"read_group\"),\r\n",
+							"        f.first(\"config_date_from\").alias(\"config_date_from\"),\r\n",
+							"        f.first(\"config_date_to\").alias(\"config_date_to\"),\r\n",
+							"        f.first(\"channel_unit\").alias(\"channel_unit\"),\r\n",
+							"        f.first(\"meter_number\").alias(\"meter_number\"),\r\n",
+							"        f.first(\"multiplier\").alias(\"multiplier\"),\r\n",
+							"        f.first(\"recording_device\").alias(\"recording_device\"),\r\n",
+							"        f.first(\"billing_system_cycle\").alias(\"billing_system_cycle\"),\r\n",
+							"        f.first(\"meter_program\").alias(\"meter_program\"),\r\n",
+							"        f.first(\"workbin\").alias(\"workbin\"),\r\n",
+							"        f.first(\"channel_type\").alias(\"channel_type\"),\r\n",
+							"        f.first(\"channel_set_node_group\").alias(\"channel_set_node_group\"),\r\n",
+							"        f.concat_ws(\",\", f.collect_set(\"dw_created_dt\")).alias(\"dw_created_dt\"),\r\n",
+							"        f.first(\"dw_modified_dt\").alias(\"dw_modified_dt\"),\r\n",
+							"        f.first(\"read_month\").alias(\"read_month\")\r\n",
+							"    )\r\n",
+							"    return (df\r\n",
+							"        .groupby(*keys)\r\n",
+							"        .agg(*aggregates)\r\n",
+							"        .selectExpr(\"*\", \"read_sum / size(offset_arr) as read_value\")\r\n",
+							"        .drop(\"read_sum\", \"offset_arr\")\r\n",
+							"        .select(*proj))\r\n",
+							"\r\n",
+							"\r\n",
+							"def daily_snapshot(df):\r\n",
+							"    when = f.when\r\n",
+							"    peak = df.read_hour.between(17,19)\r\n",
+							"    read = df.read_value\r\n",
+							"    \r\n",
+							"    group = (\"read_id\", \"servicepoint_id\", \"channel\", \"premise_id\", \"read_date\")\r\n",
+							"    aggregates = (\r\n",
+							"        f.avg(when(df.read_hour==0,  read)).alias(\"read_hour00\"),\r\n",
+							"        f.avg(when(df.read_hour==1,  read)).alias(\"read_hour01\"),\r\n",
+							"        f.avg(when(df.read_hour==2,  read)).alias(\"read_hour02\"),\r\n",
+							"        f.avg(when(df.read_hour==3,  read)).alias(\"read_hour03\"),\r\n",
+							"        f.avg(when(df.read_hour==4,  read)).alias(\"read_hour04\"),\r\n",
+							"        f.avg(when(df.read_hour==5,  read)).alias(\"read_hour05\"),\r\n",
+							"        f.avg(when(df.read_hour==6,  read)).alias(\"read_hour06\"),\r\n",
+							"        f.avg(when(df.read_hour==7,  read)).alias(\"read_hour07\"),\r\n",
+							"        f.avg(when(df.read_hour==8,  read)).alias(\"read_hour08\"),\r\n",
+							"        f.avg(when(df.read_hour==9,  read)).alias(\"read_hour09\"),\r\n",
+							"        f.avg(when(df.read_hour==10, read)).alias(\"read_hour10\"),\r\n",
+							"        f.avg(when(df.read_hour==11, read)).alias(\"read_hour11\"),\r\n",
+							"        f.avg(when(df.read_hour==12, read)).alias(\"read_hour12\"),\r\n",
+							"        f.avg(when(df.read_hour==13, read)).alias(\"read_hour13\"),\r\n",
+							"        f.avg(when(df.read_hour==14, read)).alias(\"read_hour14\"),\r\n",
+							"        f.avg(when(df.read_hour==15, read)).alias(\"read_hour15\"),\r\n",
+							"        f.avg(when(df.read_hour==16, read)).alias(\"read_hour16\"),\r\n",
+							"        f.avg(when(df.read_hour==17, read)).alias(\"read_hour17\"),\r\n",
+							"        f.avg(when(df.read_hour==18, read)).alias(\"read_hour18\"),\r\n",
+							"        f.avg(when(df.read_hour==19, read)).alias(\"read_hour19\"),\r\n",
+							"        f.avg(when(df.read_hour==20, read)).alias(\"read_hour20\"),\r\n",
+							"        f.avg(when(df.read_hour==21, read)).alias(\"read_hour21\"),\r\n",
+							"        f.avg(when(df.read_hour==22, read)).alias(\"read_hour22\"),\r\n",
+							"        f.avg(when(df.read_hour==23, read)).alias(\"read_hour23\"),\r\n",
+							"        f.sum(read).alias(\"read_sum\"),\r\n",
+							"        f.min(read).alias(\"read_min\"),\r\n",
+							"        f.max(read).alias(\"read_max\"),\r\n",
+							"        f.avg(read).alias(\"read_avg\"),\r\n",
+							"        f.stddev_pop(read).alias(\"read_std\"),\r\n",
+							"        f.max(df.interval_max).alias(\"interval_max\"),\r\n",
+							"        f.sum(when(peak, read)).alias(\"read_peak_sum\"),\r\n",
+							"        f.min(when(peak, read)).alias(\"read_peak_min\"),\r\n",
+							"        f.max(when(peak, read)).alias(\"read_peak_max\"),\r\n",
+							"        f.avg(when(peak, read)).alias(\"read_peak_avg\"),\r\n",
+							"        f.stddev_pop(when(peak, read)).alias(\"read_peak_std\"),\r\n",
+							"        f.first(\"dw_created_dt\").alias(\"dw_created_dt\"),\r\n",
+							"        f.first(\"dw_modified_dt\").alias(\"dw_modified_dt\"),\r\n",
+							"        f.first(\"read_month\").alias(\"read_month\")\r\n",
+							"    )\r\n",
+							"    return df.groupby(*group).agg(*aggregates)\r\n",
+							"\r\n",
+							"\r\n",
+							"\r\n",
+							""
+						],
+						"attachments": null,
+						"outputs": [],
+						"execution_count": 6
+					},
+					{
+						"cell_type": "markdown",
+						"metadata": {
+							"nteract": {
+								"transient": {
+									"deleting": false
+								}
+							}
+						},
+						"source": [
+							"### Main"
+						],
+						"attachments": null
+					},
+					{
+						"cell_type": "code",
+						"metadata": {
+							"jupyter": {
+								"source_hidden": false,
+								"outputs_hidden": false
+							},
+							"nteract": {
+								"transient": {
+									"deleting": false
+								}
+							}
+						},
+						"source": [
+							"# for month in months:\r\n",
+							"month = months[1]\r\n",
+							"partition_filter=\"read_month=\" + str(month)\r\n",
+							"reads = spark.read.parquet(source).filter(partition_filter).repartition(2000, \"read_id\").persist()\r\n",
+							"reads.count()\r\n",
+							"hrly = hourly_snapshot(reads)\r\n",
+							"daly = daily_snapshot(hrly)\r\n",
+							""
+						],
+						"attachments": null,
+						"outputs": [],
+						"execution_count": 23
+					},
+					{
+						"cell_type": "code",
+						"metadata": {
+							"jupyter": {
+								"source_hidden": false,
+								"outputs_hidden": false
+							},
+							"nteract": {
+								"transient": {
+									"deleting": false
+								}
+							}
+						},
+						"source": [
+							"hourly_sink = os.path.join(sinks['hourly'], partition_filter)\r\n",
+							"daily_sink = os.path.join(sinks['daily'], partition_filter)\r\n",
+							"\r\n",
+							"hrly.repartition(nfiles, \"read_id\").write.mode(\"overwrite\").parquet(hourly_sink)\r\n",
+							"daly.repartition(nfiles, \"read_id\").write.mode(\"overwrite\").parquet(daily_sink)"
+						],
+						"attachments": null,
+						"outputs": [],
+						"execution_count": 24
+					},
+					{
+						"cell_type": "markdown",
+						"metadata": {
+							"nteract": {
+								"transient": {
+									"deleting": false
+								}
+							}
+						},
+						"source": [
+							"### Cleanup\r\n",
+							""
+						],
+						"attachments": null
+					},
+					{
+						"cell_type": "code",
+						"metadata": {
+							"jupyter": {
+								"source_hidden": false,
+								"outputs_hidden": false
+							},
+							"nteract": {
+								"transient": {
+									"deleting": false
+								}
+							}
+						},
+						"source": [
+							"reads.unpersist()"
+						],
+						"attachments": null,
+						"outputs": [],
+						"execution_count": 27
+					}
+				]
+			},
+			"dependsOn": []
+		},
+		{
+			"name": "[concat(parameters('workspaceName'), '/Process SPC Tables')]",
+			"type": "Microsoft.Synapse/workspaces/sparkJobDefinitions",
+			"apiVersion": "2019-06-01-preview",
+			"properties": {
+				"targetBigDataPool": {
+					"referenceName": "SparkPool02",
+					"type": "BigDataPoolReference"
+				},
+				"requiredSparkVersion": "2.4",
+				"language": "python",
+				"jobProperties": {
+					"name": "Process SPC Tables",
+					"file": "abfss://idl@smuduw2bianpadl02.dfs.core.windows.net/synapse/workspaces/syn-bia-ittest-001/batchjobs/Spark%20job%20definition%201/ProcessReadingTables.py",
+					"conf": {
+						"spark.dynamicAllocation.enabled": "true",
+						"spark.dynamicAllocation.minExecutors": "1",
+						"spark.dynamicAllocation.maxExecutors": "44",
+						"spark.autotune.trackingId": "4f66f408-6b0d-46e6-8bcb-ddf62a6982af"
+					},
+					"args": [],
+					"jars": [],
+					"files": [],
+					"driverMemory": "56g",
+					"driverCores": 8,
+					"executorMemory": "56g",
+					"executorCores": 8,
+					"numExecutors": 1
+				}
+			},
+			"dependsOn": []
+		},
+		{
+			"name": "[concat(parameters('workspaceName'), '/Reading SPC Aggregates')]",
+			"type": "Microsoft.Synapse/workspaces/sparkJobDefinitions",
+			"apiVersion": "2019-06-01-preview",
+			"properties": {
+				"description": "Processes SPC Hourly and Daily tables",
+				"targetBigDataPool": {
+					"referenceName": "SparkPool01",
+					"type": "BigDataPoolReference"
+				},
+				"requiredSparkVersion": "2.4",
+				"language": "python",
+				"jobProperties": {
+					"name": "Reading SPC Aggregates",
+					"file": "abfss://idl@smuduw2bianpadl02.dfs.core.windows.net/synapse/workspaces/syn-bia-ittest-001/batchjobs/Reading%20SPC%20Aggregates/reading_spc_aggregates.py",
+					"conf": {
+						"spark.dynamicAllocation.enabled": "false",
+						"spark.dynamicAllocation.minExecutors": "90",
+						"spark.dynamicAllocation.maxExecutors": "90",
+						"spark.autotune.trackingId": "5953acc0-0e69-4774-928c-ac981f85f827"
+					},
+					"args": [],
+					"jars": [],
+					"files": [],
+					"driverMemory": "28g",
+					"driverCores": 4,
+					"executorMemory": "28g",
+					"executorCores": 4,
+					"numExecutors": 90
+				}
+			},
+			"dependsOn": []
+		},
+		{
+			"name": "[concat(parameters('workspaceName'), '/default')]",
+			"type": "Microsoft.Synapse/workspaces/managedVirtualNetworks",
+			"apiVersion": "2019-06-01-preview",
+			"properties": {},
+			"dependsOn": []
+		},
+		{
+			"name": "[concat(parameters('workspaceName'), '/default/priv-end-smuduw2bianpadl01')]",
+			"type": "Microsoft.Synapse/workspaces/managedVirtualNetworks/managedPrivateEndpoints",
+			"apiVersion": "2019-06-01-preview",
+			"properties": {
+				"privateLinkResourceId": "/subscriptions/e6228f9a-248c-4e3e-a6da-eefa0a86d1c4/resourceGroups/rg-bia-ittest-001/providers/Microsoft.Storage/storageAccounts/smuduw2bianpadl01",
+				"groupId": "dfs"
+			},
+			"dependsOn": [
+				"[concat(variables('workspaceId'), '/managedVirtualNetworks/default')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('workspaceName'), '/default/synapse-ws-custstgacct--syn-bia-ittest-001-smuduw2bianpadl02')]",
+			"type": "Microsoft.Synapse/workspaces/managedVirtualNetworks/managedPrivateEndpoints",
+			"apiVersion": "2019-06-01-preview",
+			"properties": {
+				"privateLinkResourceId": "/subscriptions/e6228f9a-248c-4e3e-a6da-eefa0a86d1c4/resourceGroups/rg-bia-ittest-001/providers/Microsoft.Storage/storageAccounts/smuduw2bianpadl02",
+				"groupId": "dfs",
+				"fqdns": [
+					"smuduw2bianpadl02.dfs.core.windows.net"
+				]
+			},
+			"dependsOn": [
+				"[concat(variables('workspaceId'), '/managedVirtualNetworks/default')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('workspaceName'), '/default/synapse-ws-sql--syn-bia-ittest-001')]",
+			"type": "Microsoft.Synapse/workspaces/managedVirtualNetworks/managedPrivateEndpoints",
+			"apiVersion": "2019-06-01-preview",
+			"properties": {
+				"privateLinkResourceId": "/subscriptions/e6228f9a-248c-4e3e-a6da-eefa0a86d1c4/resourceGroups/rg-bia-ittest-001/providers/Microsoft.Synapse/workspaces/syn-bia-ittest-001",
+				"groupId": "sql",
+				"fqdns": [
+					"syn-bia-ittest-001.ab55a548-d555-4c1c-8c85-70b5883780d3.sql.azuresynapse.net"
+				]
+			},
+			"dependsOn": [
+				"[concat(variables('workspaceId'), '/managedVirtualNetworks/default')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('workspaceName'), '/default/synapse-ws-sqlOnDemand--syn-bia-ittest-001')]",
+			"type": "Microsoft.Synapse/workspaces/managedVirtualNetworks/managedPrivateEndpoints",
+			"apiVersion": "2019-06-01-preview",
+			"properties": {
+				"privateLinkResourceId": "/subscriptions/e6228f9a-248c-4e3e-a6da-eefa0a86d1c4/resourceGroups/rg-bia-ittest-001/providers/Microsoft.Synapse/workspaces/syn-bia-ittest-001",
+				"groupId": "sqlOnDemand",
+				"fqdns": [
+					"syn-bia-ittest-001-ondemand.ab55a548-d555-4c1c-8c85-70b5883780d3.sql.azuresynapse.net"
+				]
+			},
+			"dependsOn": [
+				"[concat(variables('workspaceId'), '/managedVirtualNetworks/default')]"
+			]
+		}
+	]
+}
